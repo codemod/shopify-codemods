@@ -1,49 +1,14 @@
 # Contributing
 
-Thank you for helping improve <ECOSYSTEM_NAME> codemods. This project provides automated migrations to help the community adopt new features and upgrade across breaking changes.
+We accept PRs that implement codemods described in open issues.
 
-## How we work
+**Requirements**
 
-- Propose: open an issue before large changes
-- Safety: codemods must be safe, predictable, idempotent
-- Tests: include multiple fixtures (positive/negative/idempotent)
-- Documentation: update per-recipe README and root docs
+- Tests with realistic fixtures.
+- Idempotency: running the codemod twice should produce no diff.
+- `--dry-run` support.
+- Include an upstream reference link in your PR description.
 
-For workflow structure and orchestration details, see: https://docs.codemod.com/cli/workflows
+**New transformations**
 
-## Getting started
-
-```bash
-npm install
-npm run lint
-npm run validate
-npm run typecheck
-npm run test
-```
-
-## Scaffolding a new codemod
-
-```bash
-npx codemod@latest init codemods/my-codemod
-```
-
-During prompts, select appropriate options for your use case. Placeholders to adapt:
-- Name: `@<NAMESPACE>/<MAJOR_VERSION>/<codemod-name>`
-
-## Commit messages
-
-Use Conventional Commits:
-- `feat(scope):` add a new codemod or capability
-- `fix(scope):` bugfixes in a transform or tests
-- `docs(scope):` docs-only changes
-- `refactor(scope):` code changes that neither fix a bug nor add a feature
-- `test(scope):` add or adjust fixtures/tests
-- `chore(scope):` tooling, CI, formatting, repo hygiene
-
-## Security
-
-See SECURITY.md and report privately.
-
-## License
-
-MIT
+Open an issue using the “Transformation proposal” template and include: why it matters, before/after, detection (AST/regex/config path), edge cases, and an official reference URL.

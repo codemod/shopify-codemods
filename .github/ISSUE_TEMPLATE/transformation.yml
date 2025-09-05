@@ -1,0 +1,41 @@
+name: Transformation proposal
+description: Propose a high-impact, reference-backed migration rule
+labels: ["help wanted","breaking-change"]
+body:
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      placeholder: app-bridge-react
+    validations: { required: true }
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this matters
+    validations: { required: true }
+  - type: textarea
+    id: before
+    attributes:
+      label: Before (code/config)
+      render: typescript
+    validations: { required: true }
+  - type: textarea
+    id: after
+    attributes:
+      label: After (code/config)
+      render: typescript
+    validations: { required: true }
+  - type: textarea
+    id: detect
+    attributes:
+      label: Detection strategy
+      description: AST selectors / regex / file globs / config keys
+  - type: textarea
+    id: edges
+    attributes:
+      label: Edge cases & caveats
+  - type: input
+    id: reference
+    attributes:
+      label: Authoritative reference URL
+    validations: { required: true }

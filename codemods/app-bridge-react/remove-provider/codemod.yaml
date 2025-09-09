@@ -2,7 +2,7 @@ schema_version: "1.0"
 
 name: "@shopify/app-bridge-react-remove-provider"
 version: "0.1.0"
-description: "Migrate @shopify/app-bridge-react v3 -> v4: remove <Provider>, ensure app-bridge.js + <meta name=shopify-api-key>"
+description: "Remove Provider from @shopify/app-bridge-react imports and unwrap JSX"
 author: "Codemod"
 license: "MIT"
 workflow: "workflow.yaml"
@@ -11,7 +11,7 @@ category: "migration"
 targets:
   languages: ["typescript"]
 
-keywords: ["shopify", "app-bridge", "react", "migration", "v4", "provider"]
+keywords: ["shopify", "app-bridge", "react", "v4"]
 
 links:
   - "https://shopify.dev/docs/api/app-bridge/migration-guide#step-1-add-the-app-bridgejs-script-tag"

@@ -2,20 +2,11 @@ version: "1"
 
 nodes:
   - id: apply-transforms
-    name: Apply App Bridge React v4 transforms
+    name: Remove App Bridge React Provider
     type: automatic
     steps:
-      - name: "Remove Provider and ensure Next.js <Head> tags"
+      - name: "Remove Provider import and unwrap JSX"
         js-ast-grep:
           js_file: scripts/index.ts
           language: "typescript"
-
-  - id: inject-html
-    name: Inject meta + script into HTML shells
-    type: automatic
-    depends_on: [apply-transforms]
-    steps:
-      - id: html-inject
-        name: Ensure <meta name="shopify-api-key"> and app-bridge.js in HTML files
-        run: ./scripts/inject-html.sh
 

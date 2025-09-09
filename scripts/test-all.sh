@@ -1,26 +1,26 @@
 #!/bin/bash
 
-# Test JSSG codemods using Codemod CLI native features
+# Test jssg codemods using Codemod CLI native features
 set -e
 
-echo "🧪 Testing JSSG codemods..."
+echo "🧪 Testing jssg codemods..."
 
-# Find JSSG codemods (those with js-ast-grep in workflow.yaml)
+# Find jssg codemods (those with js-ast-grep in workflow.yaml)
 find codemods -name "workflow.yaml" | while read -r workflow; do
     recipe_dir=$(dirname "$workflow")
     recipe_name=$(basename "$recipe_dir")
     
-    # Check if it's a JSSG codemod
+    # Check if it's a jssg codemod
     if grep -q "js-ast-grep:" "$workflow"; then
         echo ""
-        echo "📁 Testing JSSG codemod: $recipe_name..."
+        echo "📁 Testing jssg codemod: $recipe_name..."
         
         # Validate workflow first
         echo "  ✅ Validating workflow..."
         npx codemod@latest workflow validate --workflow "$workflow"
         
-        # Run JSSG tests
-        echo "  🧪 Running JSSG tests..."
+        # Run jssg tests
+        echo "  🧪 Running jssg tests..."
         js_file=$(grep "js_file:" "$workflow" | sed 's/.*js_file:\s*["'\'']*\([^"'\'']*\)["'\'']*.*/\1/' | tr -d ' ')
         language=$(grep "language:" "$workflow" | sed 's/.*language:\s*["'\'']*\([^"'\'']*\)["'\'']*.*/\1/' | tr -d ' ')
         if [ -z "$language" ]; then
@@ -39,4 +39,4 @@ find codemods -name "workflow.yaml" | while read -r workflow; do
 done
 
 echo ""
-echo "🎉 All JSSG codemod tests completed successfully!"
+echo "🎉 All jssg codemod tests completed successfully!"

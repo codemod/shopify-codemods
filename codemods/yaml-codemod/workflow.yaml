@@ -1,7 +1,7 @@
 version: "1"
 nodes:
   - id: apply-rules
-    name: Apply AST-grep Rules
+    name: Apply ast-grep Rules
     steps:
       - name: "Scan typescript files and apply fixes"
         ast-grep:

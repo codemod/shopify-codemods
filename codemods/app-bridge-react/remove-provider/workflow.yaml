@@ -2,10 +2,10 @@ version: "1"
 
 nodes:
   - id: apply-jssg-transforms
-    name: Apply JSSG Transformations
+    name: Apply jssg Transformations
     type: automatic
     steps:
-      - name: "Remove Provider from imports and unwrap JSX using JSSG"
+      - name: "Remove Provider from imports and unwrap JSX using jssg"
         js-ast-grep:
           js_file: scripts/index.ts
           language: "javascript"

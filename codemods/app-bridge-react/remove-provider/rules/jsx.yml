@@ -1,4 +1,4 @@
-# AST-grep rules for unwrapping Provider JSX elements
+# ast-grep rules for unwrapping Provider JSX elements
 # This handles the JSX transformation part of the migration
 
 id: unwrap-provider-jsx

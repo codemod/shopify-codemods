@@ -1,4 +1,4 @@
-# AST-grep rules for removing Provider from @shopify/app-bridge-react imports
+# ast-grep rules for removing Provider from @shopify/app-bridge-react imports
 # This handles the import transformation part of the migration
 
 id: remove-provider-from-imports

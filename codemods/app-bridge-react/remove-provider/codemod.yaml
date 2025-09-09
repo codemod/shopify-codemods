@@ -9,7 +9,7 @@ workflow: "workflow.yaml"
 category: "migration"
 
 targets:
-  languages: ["typescript"]
+  languages: ["javascript", "typescript"]
 
 keywords: ["shopify", "app-bridge", "react", "v4"]
 

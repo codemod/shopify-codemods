@@ -5,9 +5,12 @@ Remove `Provider` from `@shopify/app-bridge-react` imports and unwrap JSX elemen
 ## What it does
 
 - Removes `Provider` from named imports of `@shopify/app-bridge-react`
-- Unwraps `<Provider>...</Provider>` JSX elements, leaving only the children
-- Removes self-closing `<Provider />` elements
 - Handles aliased imports like `Provider as AppProvider`
+- Unwraps `<Provider>...</Provider>` JSX elements, leaving only the children
+- Unwraps aliased Provider JSX elements like `<AppProvider>...</AppProvider>`
+- Removes self-closing `<Provider />` elements
+- Handles `React.createElement(Provider, ...)` calls
+- Removes entire import statement when only `Provider` is imported
 
 ## Usage
 
@@ -15,7 +18,9 @@ Remove `Provider` from `@shopify/app-bridge-react` imports and unwrap JSX elemen
 npx codemod@latest workflow run -w workflow.yaml
 ```
 
-## Example
+## Examples
+
+### Basic Provider Removal
 
 **Before:**
 ```jsx
@@ -45,11 +50,43 @@ export default function App() {
 }
 ```
 
+### Aliased Provider Removal
+
+**Before:**
+```jsx
+import {Provider as AppProvider, TitleBar} from '@shopify/app-bridge-react';
+
+export default function App() {
+  return (
+    <AppProvider config={{apiKey: 'old', host: 'host'}}>
+      <div>
+        <TitleBar title="Hello" />
+      </div>
+    </AppProvider>
+  );
+}
+```
+
+**After:**
+```jsx
+import { TitleBar } from '@shopify/app-bridge-react';
+
+export default function App() {
+  return (
+    <div>
+        <TitleBar title="Hello" />
+      </div>
+  );
+}
+```
+
 ## Implementation
 
-This codemod uses a hybrid approach:
-- **AST patterns** for import statement transformations (reliable and precise)
-- **Targeted regex** for JSX unwrapping (AST patterns for JSX weren't working reliably in JSSG)
+This codemod uses JSSG (JavaScript Structural Grep) with AST-based transformations:
+- **AST node traversal** for finding and transforming import statements
+- **AST node traversal** for finding and unwrapping JSX elements
+- **Minimal regex** only for content extraction from JSX elements
+- **Pure AST patterns** for self-closing elements and React.createElement calls
 
 ## References
 

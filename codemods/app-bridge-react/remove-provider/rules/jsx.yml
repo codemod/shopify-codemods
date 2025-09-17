@@ -1,0 +1,23 @@
+# ast-grep rules for unwrapping Provider JSX elements
+# This handles the JSX transformation part of the migration
+
+id: unwrap-provider-jsx
+language: javascript
+message: "Unwrap Provider JSX element and preserve its children"
+rule:
+  any:
+    # Rule 1: Unwrap Provider JSX elements with props
+    - pattern: <Provider $$$PROPS>$$$CHILDREN</Provider>
+      fix: $$$CHILDREN
+    
+    # Rule 2: Handle Provider with no props
+    - pattern: <Provider>$$$CHILDREN</Provider>
+      fix: $$$CHILDREN
+    
+    # Rule 3: Remove self-closing Provider elements
+    - pattern: <Provider $$$PROPS />
+      fix: ""
+    
+    # Rule 4: Remove self-closing Provider with no props
+    - pattern: <Provider />
+      fix: ""

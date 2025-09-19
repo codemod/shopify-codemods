@@ -485,3 +485,110 @@ export function isValidObjectReference(
 
   return false;
 }
+
+/**
+ * Generic function to check if a file imports from packages matching specific patterns
+ * This is the foundation for all codemod package filtering
+ * @param rootNode - The root AST node to search in
+ * @param patterns - Array of package name patterns to match
+ * @param matchType - How to match patterns: 'includes' (default), 'startsWith', or 'exact'
+ * @returns boolean indicating if any matching imports are found
+ *
+ * @example
+ * // Check for Shopify POS imports
+ * const isShopifyFile = hasImportsMatching(rootNode, [
+ *   "@shopify/pos",
+ *   "@shopify/point-of-sale",
+ *   "pos-ui-extensions"
+ * ]);
+ *
+ * // Check for React imports with exact matching
+ * const isReactFile = hasImportsMatching(rootNode, ["react"], "exact");
+ *
+ * // Check for any GraphQL-related imports
+ * const hasGraphQL = hasImportsMatching(rootNode, ["graphql", "apollo"], "includes");
+ */
+export function hasImportsMatching(
+  rootNode: SgNode,
+  patterns: string[],
+  matchType: "includes" | "startsWith" | "exact" = "includes"
+): boolean {
+  const importStatements = rootNode.findAll({
+    rule: { pattern: `import $IMPORT from "$SOURCE"` },
+  });
+
+  const namedImportStatements = rootNode.findAll({
+    rule: { pattern: `import { $$$SPECS } from "$SOURCE"` },
+  });
+
+  const namespaceImportStatements = rootNode.findAll({
+    rule: { pattern: `import * as $ALIAS from "$SOURCE"` },
+  });
+
+  const sideEffectImportStatements = rootNode.findAll({
+    rule: { pattern: `import "$SOURCE"` },
+  });
+
+  const allImportNodes = [
+    ...importStatements,
+    ...namedImportStatements,
+    ...namespaceImportStatements,
+    ...sideEffectImportStatements,
+  ];
+
+  for (const importNode of allImportNodes) {
+    const source = importNode.getMatch("SOURCE");
+    if (source) {
+      const sourcePath = source.text();
+
+      for (const pattern of patterns) {
+        let matches = false;
+
+        switch (matchType) {
+          case "exact":
+            matches = sourcePath === pattern;
+            break;
+          case "startsWith":
+            matches = sourcePath.startsWith(pattern);
+            break;
+          case "includes":
+          default:
+            matches =
+              sourcePath.includes(pattern) || sourcePath.startsWith(pattern);
+            break;
+        }
+
+        if (matches) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if a file imports from POS UI Extensions packages (old or new)
+ * @param rootNode - The root AST node to search in
+ * @returns boolean indicating if this file uses POS UI Extensions
+ *
+ * @example
+ * if (isPOSUIExtensionsFile(rootNode)) {
+ *   // Apply POS UI Extensions transformations
+ * }
+ */
+export function isPOSUIExtensionsFile(rootNode: SgNode): boolean {
+  const posUIExtensionPatterns = [
+    // New packages (post-migration)
+    "@shopify/ui-extensions/point-of-sale",
+    "@shopify/ui-extensions-react/point-of-sale",
+    // Old packages (pre-migration)
+    "@shopify/pos-ui-extensions",
+    "@shopify/retail-ui-extensions",
+    "@shopify/retail-ui-extensions-react",
+    "pos-ui-extensions",
+  ];
+
+  return hasImportsMatching(rootNode, posUIExtensionPatterns, "startsWith");
+}

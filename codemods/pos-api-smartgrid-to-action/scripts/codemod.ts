@@ -1,95 +1,28 @@
 import type { SgRoot, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
-
-// Utilities for API alias detection and validation
-function getApiAliases(rootNode: any): Set<string> {
-  return getVariableAliases(rootNode, "api", ["smartGrid"]);
-}
-
-function getVariableAliases(
-  rootNode: any,
-  sourceVar: string,
-  destructuredProps: string[] = []
-): Set<string> {
-  const aliases = new Set<string>([sourceVar]);
-
-  // Pattern 1: const myVar = sourceVar
-  const directAliases = rootNode.findAll({
-    rule: { pattern: `const $VAR = ${sourceVar}` },
-  });
-
-  for (const alias of directAliases) {
-    const varName = alias.getMatch("VAR")?.text();
-    if (varName) {
-      aliases.add(varName);
-    }
-  }
-
-  // Pattern 2: const { prop } = sourceVar (for specified destructured properties)
-  for (const prop of destructuredProps) {
-    const destructuring = rootNode.findAll({
-      rule: { pattern: `const { ${prop} } = ${sourceVar}` },
-    });
-
-    if (destructuring.length > 0) {
-      aliases.add(prop);
-    }
-  }
-
-  return aliases;
-}
-
-function isValidObjectReference(
-  objectText: string,
-  aliases: Set<string>
-): boolean {
-  // Direct alias match
-  if (aliases.has(objectText)) return true;
-
-  // Optional chaining pattern (api?)
-  const optionalBase = objectText.replace(/\?$/, "");
-  if (aliases.has(optionalBase)) return true;
-
-  // Function call patterns: getApi(), api(), getApi()?, etc.
-  const functionCallBase = objectText.replace(/\(\)\??$/, "");
-  if (aliases.has(functionCallBase)) return true;
-
-  // Check if function call returns an API (any function ending with 'api' or known patterns)
-  if (objectText.endsWith("()") || objectText.endsWith("()?")) {
-    const funcName = objectText.replace(/\(\)\??$/, "");
-    // Common patterns like getApi, fetchApi, etc.
-    if (funcName.toLowerCase().includes("api")) return true;
-  }
-
-  // this.alias pattern (including optional chaining)
-  for (const alias of aliases) {
-    if (
-      objectText === `this.${alias}` ||
-      objectText.startsWith(`this.${alias}.`)
-    ) {
-      return true;
-    }
-    // Handle this?.alias? patterns
-    if (objectText === `this?.${alias}?` || objectText === `this?.${alias}`) {
-      return true;
-    }
-  }
-
-  return false;
-}
+import {
+  isPOSUIExtensionsFile,
+  getApiAliases,
+  isValidObjectReference,
+} from "../../../utils/ast-utils.js";
 
 /**
  * Transform api.smartGrid.presentModal() calls to api.action.presentModal()
  * Handles various patterns including aliases, destructuring, optional chaining, etc.
+ * Only applies to files that import from POS UI Extensions packages.
  */
 async function transform(root: SgRoot<TS>): Promise<string | null> {
   const rootNode = root.root();
+
+  // Only transform files that import from POS UI Extensions (old or new packages)
+  if (!isPOSUIExtensionsFile(rootNode as unknown as SgNode)) {
+    return null;
+  }
+
   const edits: Edit[] = [];
 
-  // Get all possible aliases for 'api' including destructured 'smartGrid'
   const apiAliases = getApiAliases(rootNode as unknown as SgNode);
 
-  // Find all 'smartGrid' property identifiers in the code
   const smartGridProps = rootNode
     .findAll({
       rule: {
@@ -103,7 +36,6 @@ async function transform(root: SgRoot<TS>): Promise<string | null> {
       continue;
     }
 
-    // Replace "smartGrid" with "action"
     edits.push(prop.replace("action"));
   }
 
@@ -113,6 +45,8 @@ async function transform(root: SgRoot<TS>): Promise<string | null> {
 /**
  * Determine if a smartGrid property should be transformed
  * Only transforms api.smartGrid.presentModal() patterns
+ * @param prop - AST node
+ * @param apiAliases - Set of valid API aliases
  */
 function shouldTransformProperty(
   prop: SgNode,
@@ -141,7 +75,7 @@ function shouldTransformProperty(
 
   // Only transform if this is a function call (not just property access)
   const callExpr = outerMemberExpr.parent();
-  return callExpr && callExpr.kind() === "call_expression";
+  return callExpr ? callExpr.kind() === "call_expression" : false;
 }
 
 export default transform;

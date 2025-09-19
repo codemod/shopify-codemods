@@ -8,16 +8,20 @@ export interface ImportInfo {
 
 /**
  * Generic utility to get variable aliases for any source variable
+ * Supports const, let, and var declarations with various patterns
  * @param rootNode - The root AST node to search in
  * @param sourceVar - The source variable name (e.g., "api", "Polaris", "React")
  * @param destructuredProps - Optional array of properties that create direct aliases when destructured
  * @returns Set of all aliases for the source variable
  *
  * @example
- * // For API aliases: const myApi = api; const { smartGrid } = api;
+ * // For API aliases with various declaration types:
+ * // const myApi = api; let anotherApi = api; var thirdApi = api;
+ * // const { smartGrid } = api; let { smartGrid: grid } = api; var { smartGrid: varGrid } = api;
+ * // const a = 1, aliasedApi = api, b = 2;
  * const apiAliases = getVariableAliases(rootNode, "api", ["smartGrid"]);
  *
- * // For Polaris aliases: const MyPolaris = Polaris;
+ * // For Polaris aliases: const MyPolaris = Polaris; let altPolaris = Polaris;
  * const polarisAliases = getVariableAliases(rootNode, "Polaris");
  */
 export function getVariableAliases(
@@ -27,26 +31,90 @@ export function getVariableAliases(
 ): Set<string> {
   const aliases = new Set<string>([sourceVar]);
 
-  // Pattern 1: const myVar = sourceVar
-  const directAliases = rootNode.findAll({
-    rule: { pattern: `const $VAR = ${sourceVar}` },
-  });
+  // All declaration types to search for
+  const declarationTypes = ["const", "let", "var"];
 
-  for (const alias of directAliases) {
-    const varName = alias.getMatch("VAR")?.text();
-    if (varName) {
-      aliases.add(varName);
+  // Pattern 1: [const|let|var] myVar = sourceVar
+  for (const declType of declarationTypes) {
+    const directAliases = rootNode.findAll({
+      rule: { pattern: `${declType} $VAR = ${sourceVar}` },
+    });
+
+    for (const alias of directAliases) {
+      const varName = alias.getMatch("VAR")?.text();
+      if (varName) {
+        aliases.add(varName);
+      }
+    }
+
+    // Also handle multiple declarations: [const|let|var] a = x, myVar = sourceVar, c = z
+    const multipleDeclarations = rootNode.findAll({
+      rule: { pattern: `${declType} $$$VARS` },
+    });
+
+    for (const decl of multipleDeclarations) {
+      const varsText = decl.getMatch("VARS")?.text();
+      if (varsText && varsText.includes(`= ${sourceVar}`)) {
+        // Parse multiple variable declarations
+        const assignments = varsText.split(",");
+        for (const assignment of assignments) {
+          const trimmed = assignment.trim();
+          if (trimmed.includes(`= ${sourceVar}`)) {
+            const varMatch = trimmed.match(/^(\w+)\s*=/);
+            if (varMatch) {
+              aliases.add(varMatch[1]);
+            }
+          }
+        }
+      }
     }
   }
 
-  // Pattern 2: const { prop } = sourceVar (for specified destructured properties)
+  // Pattern 2: [const|let|var] { prop } = sourceVar (for specified destructured properties)
   for (const prop of destructuredProps) {
-    const destructuring = rootNode.findAll({
-      rule: { pattern: `const { ${prop} } = ${sourceVar}` },
-    });
+    for (const declType of declarationTypes) {
+      // Simple destructuring: { prop } = sourceVar
+      const simpleDestructuring = rootNode.findAll({
+        rule: { pattern: `${declType} { ${prop} } = ${sourceVar}` },
+      });
 
-    if (destructuring.length > 0) {
-      aliases.add(prop);
+      if (simpleDestructuring.length > 0) {
+        aliases.add(prop);
+      }
+
+      // Renamed destructuring: { prop: alias } = sourceVar
+      const renamedDestructuring = rootNode.findAll({
+        rule: { pattern: `${declType} { ${prop}: $ALIAS } = ${sourceVar}` },
+      });
+
+      for (const destructure of renamedDestructuring) {
+        const aliasName = destructure.getMatch("ALIAS")?.text();
+        if (aliasName) {
+          aliases.add(aliasName);
+        }
+      }
+
+      // Mixed destructuring: { prop, prop2: alias, ... } = sourceVar
+      const mixedDestructuring = rootNode.findAll({
+        rule: { pattern: `${declType} { $$$PROPS } = ${sourceVar}` },
+      });
+
+      for (const destructure of mixedDestructuring) {
+        const propsText = destructure.getMatch("PROPS")?.text();
+        if (propsText && propsText.includes(prop)) {
+          // Parse the destructuring to find aliases
+          const propPattern = new RegExp(`\\b${prop}:\\s*(\\w+)`, "g");
+          let match;
+          while ((match = propPattern.exec(propsText)) !== null) {
+            aliases.add(match[1]);
+          }
+
+          // Also check for simple property name
+          if (new RegExp(`\\b${prop}\\b(?!:)`).test(propsText)) {
+            aliases.add(prop);
+          }
+        }
+      }
     }
   }
 

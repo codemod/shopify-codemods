@@ -54,15 +54,131 @@ export function getVariableAliases(
 }
 
 /**
- * Legacy API-specific wrapper for backward compatibility
- * @deprecated Use getVariableAliases(rootNode, "api", ["smartGrid"]) instead
+ * Get all possible aliases for the 'api' variable including destructured 'smartGrid'
+ * This is a convenience wrapper for common Shopify POS API usage patterns
+ * @param rootNode - The root AST node to search in
+ * @returns Set of all aliases for the api variable
+ *
+ * @example
+ * const apiAliases = getApiAliases(rootNode);
+ * // Returns Set(["api", "smartGrid"]) if code has: const { smartGrid } = api;
  */
 export function getApiAliases(rootNode: SgNode): Set<string> {
   return getVariableAliases(rootNode, "api", ["smartGrid"]);
 }
 
 /**
+ * Helper function to traverse a member expression chain like a linked list
+ * and extract the full property path
+ * @param node - The member expression node to traverse
+ * @returns Array of property names from base to tip (e.g., ["api", "smartGrid", "presentModal"])
+ */
+function getMemberExpressionChain(node: SgNode): string[] {
+  const chain: string[] = [];
+  let current = node;
+
+  // Traverse the member expression chain
+  while (current && current.kind() === "member_expression") {
+    // Get the property (right side of the dot)
+    const property = current.field("property");
+    if (property) {
+      chain.unshift(property.text()); // Add to front since we're traversing backwards
+    }
+
+    // Move to the object (left side of the dot)
+    current = current.field("object")!;
+  }
+
+  // Add the base object (identifier, this, function call, etc.)
+  if (current) {
+    const baseText = current.text();
+    // Handle different base types
+    if (baseText.endsWith("()")) {
+      // Function call: getApi() -> "getApi"
+      chain.unshift(baseText.slice(0, -2));
+    } else if (baseText.endsWith("()?")) {
+      // Optional function call: getApi()? -> "getApi"
+      chain.unshift(baseText.slice(0, -3));
+    } else if (baseText === "this") {
+      // this.api.method -> ["this", "api", "method"]
+      chain.unshift("this");
+    } else {
+      // Regular identifier: api -> "api"
+      chain.unshift(baseText);
+    }
+  }
+
+  return chain;
+}
+
+/**
+ * Check if a member expression chain matches the expected pattern
+ * @param chain - Array of property names from getMemberExpressionChain
+ * @param objectAliases - Set of valid object aliases
+ * @param property - The property name to find
+ * @param method - Optional method name that must follow the property
+ * @returns boolean indicating if the chain matches
+ */
+function matchesMemberPattern(
+  chain: string[],
+  objectAliases: Set<string>,
+  property: string,
+  method?: string
+): boolean {
+  if (chain.length < 1) return false;
+
+  // Handle direct property usage (from destructuring)
+  if (chain.length === 1) {
+    const base = chain[0];
+    return objectAliases.has(base) && base === property && !method;
+  }
+
+  if (chain.length === 2 && method) {
+    // Direct method call: smartGrid.presentModal
+    const [base, methodName] = chain;
+    return (
+      objectAliases.has(base) && base === property && methodName === method
+    );
+  }
+
+  // Handle normal patterns: alias.property[.method]
+  const expectedLength = method ? 3 : 2;
+  if (chain.length !== expectedLength) return false;
+
+  const [base, prop, methodName] = chain;
+
+  // Check base object (handle this.alias pattern)
+  let validBase = false;
+  if (objectAliases.has(base)) {
+    validBase = true;
+  } else if (
+    base === "this" &&
+    chain.length > 1 &&
+    objectAliases.has(chain[1])
+  ) {
+    // this.alias.property pattern
+    validBase = true;
+    // Adjust indices for this.alias pattern
+    const adjustedProp = chain[2];
+    const adjustedMethod = chain[3];
+    return adjustedProp === property && (!method || adjustedMethod === method);
+  } else {
+    // Check for function calls that might return the object
+    const funcCallBase = base.replace(/\?\?$/, ""); // Remove optional chaining
+    if (
+      funcCallBase.toLowerCase().includes("api") ||
+      objectAliases.has(funcCallBase)
+    ) {
+      validBase = true;
+    }
+  }
+
+  return validBase && prop === property && (!method || methodName === method);
+}
+
+/**
  * Generic utility to find member expressions with specific object and property
+ * Uses proper AST traversal instead of string pattern matching
  * @param rootNode - The root AST node to search in
  * @param objectAliases - Set of valid object aliases
  * @param property - The property name to find (e.g., "smartGrid", "Button", "Modal")
@@ -81,49 +197,56 @@ export function findMemberExpressions(
   objectAliases: Set<string>,
   property: string,
   method?: string
-): any[] {
-  const usages: any[] = [];
-  const methodPattern = method ? `.${method}($$$ARGS)` : "";
+): SgNode[] {
+  const usages: SgNode[] = [];
 
-  for (const alias of objectAliases) {
-    if (alias === property) {
-      // Special case: direct property usage (from destructuring)
-      const directUsages = rootNode.findAll({
-        rule: { pattern: `${alias}${methodPattern}` },
-      });
-      usages.push(...directUsages);
-    } else {
-      // Normal case: alias.property.method()
-      const memberUsages = rootNode.findAll({
-        rule: { pattern: `${alias}.${property}${methodPattern}` },
-      });
-      usages.push(...memberUsages);
+  // Find all member expressions and call expressions
+  const memberExpressions = rootNode.findAll({
+    rule: { kind: "member_expression" },
+  });
+
+  const callExpressions = rootNode.findAll({
+    rule: { kind: "call_expression" },
+  });
+
+  // Check member expressions
+  for (const node of memberExpressions) {
+    const chain = getMemberExpressionChain(node);
+    if (matchesMemberPattern(chain, objectAliases, property, method)) {
+      usages.push(node);
     }
   }
 
-  // Handle this.alias patterns
-  const thisUsages = rootNode.findAll({
-    rule: {
-      pattern: `this.${
-        Array.from(objectAliases)[0]
-      }.${property}${methodPattern}`,
-    },
-  });
-  usages.push(...thisUsages);
+  // Check call expressions (for method calls)
+  if (method) {
+    for (const node of callExpressions) {
+      const callee = node.field("function");
+      if (callee && callee.kind() === "member_expression") {
+        const chain = getMemberExpressionChain(callee);
+        if (matchesMemberPattern(chain, objectAliases, property, method)) {
+          usages.push(node); // Return the call expression, not just the member expression
+        }
+      }
+    }
+  }
 
-  // Handle optional chaining
-  const optionalUsages = rootNode.findAll({
-    rule: {
-      pattern: `${Array.from(objectAliases)[0]}?.${property}${methodPattern}`,
-    },
-  });
-  usages.push(...optionalUsages);
+  // Handle direct identifier usage (from destructuring)
+  if (!method) {
+    const identifiers = rootNode.findAll({
+      rule: { kind: "identifier" },
+    });
 
-  // Handle function call patterns
-  const functionCallUsages = rootNode.findAll({
-    rule: { pattern: `$FUNC().${property}${methodPattern}` },
-  });
-  usages.push(...functionCallUsages);
+    for (const identifier of identifiers) {
+      const text = identifier.text();
+      if (objectAliases.has(text) && text === property) {
+        // Make sure it's not part of a larger member expression
+        const parent = identifier.parent();
+        if (parent && parent.kind() !== "member_expression") {
+          usages.push(identifier);
+        }
+      }
+    }
+  }
 
   return usages;
 }
@@ -206,17 +329,6 @@ export function getImports(
   }
 
   return imports;
-}
-
-/**
- * Legacy function for backward compatibility
- * @deprecated Use getImports(rootNode, packageName) instead
- */
-export function getImportSources(
-  rootNode: any,
-  packageName: string
-): ImportInfo[] {
-  return getImports(rootNode, packageName);
 }
 
 /**

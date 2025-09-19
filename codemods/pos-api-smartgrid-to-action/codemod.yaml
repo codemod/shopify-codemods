@@ -1,6 +1,6 @@
 schema_version: "1.0"
 
-name: "testing"
+name: "pos-api-smartgrid-to-action"
 version: "0.1.0"
 description: "Transform legacy code patterns"
 author: "Shadi <shadi@codemod.com>"

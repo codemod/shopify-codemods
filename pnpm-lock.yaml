@@ -21,6 +21,9 @@ importers:
 
 packages:
 
+  '@codemod.com/jssg-types@1.0.9':
+    resolution: {integrity: sha512-j+O2nvYnBcmBy0mG5bSmBD7Cn7q3fgp4tI6aqIuF7pVu7j8Dgs45Ohgkpzx9mwqcmAE7vC9CEc8zQZOfwfICyw==}
+
   husky@9.1.7:
     resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
     engines: {node: '>=18'}
@@ -32,6 +35,8 @@ packages:
     hasBin: true
 
 snapshots:
+
+  '@codemod.com/jssg-types@1.0.9': {}
 
   husky@9.1.7: {}
 

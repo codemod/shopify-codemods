@@ -1,18 +1,9 @@
-// Type definitions for AST-grep nodes (avoiding import issues)
-export interface SgNode {
-  text(): string;
-  kind(): string;
-  parent(): SgNode | null;
-  field(name: string): SgNode | null;
-  getMatch(name: string): SgNode | null;
-  replace(text: string): any;
-  findAll(config: { rule: any }): SgNode[];
-}
+import type { SgNode } from "@codemod.com/jssg-types/main";
 
 export interface ImportInfo {
   source: string;
   specifier: string;
-  node: any;
+  node: SgNode;
 }
 
 /**
@@ -30,7 +21,7 @@ export interface ImportInfo {
  * const polarisAliases = getVariableAliases(rootNode, "Polaris");
  */
 export function getVariableAliases(
-  rootNode: any,
+  rootNode: SgNode,
   sourceVar: string,
   destructuredProps: string[] = []
 ): Set<string> {
@@ -66,7 +57,7 @@ export function getVariableAliases(
  * Legacy API-specific wrapper for backward compatibility
  * @deprecated Use getVariableAliases(rootNode, "api", ["smartGrid"]) instead
  */
-export function getApiAliases(rootNode: any): Set<string> {
+export function getApiAliases(rootNode: SgNode): Set<string> {
   return getVariableAliases(rootNode, "api", ["smartGrid"]);
 }
 
@@ -86,7 +77,7 @@ export function getApiAliases(rootNode: any): Set<string> {
  * const buttonUsages = findMemberExpressions(rootNode, polarisAliases, "Button");
  */
 export function findMemberExpressions(
-  rootNode: any,
+  rootNode: SgNode,
   objectAliases: Set<string>,
   property: string,
   method?: string
@@ -147,7 +138,10 @@ export function findMemberExpressions(
  * // Find all Polaris imports
  * const polarisImports = getImports(rootNode, "@shopify/polaris");
  */
-export function getImports(rootNode: any, packageName: string): ImportInfo[] {
+export function getImports(
+  rootNode: SgNode,
+  packageName: string
+): ImportInfo[] {
   const imports: ImportInfo[] = [];
 
   // Pattern 1: import specifier from "package"
@@ -237,11 +231,11 @@ export function getImportSources(
  * const buttonImports = getNamedImports(rootNode, "@shopify/polaris", "Button");
  */
 export function getNamedImports(
-  rootNode: any,
+  rootNode: SgNode,
   packageName: string,
   importName: string
-): any[] {
-  const nodes: any[] = [];
+): SgNode[] {
+  const nodes: SgNode[] = [];
 
   // Pattern: import { importName } from "package" or import { importName, ... } from "package"
   const imports = rootNode.findAll({

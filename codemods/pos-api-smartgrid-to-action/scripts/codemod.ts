@@ -1,4 +1,4 @@
-import type { SgRoot, Edit } from "codemod:ast-grep";
+import type { SgRoot, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 
 // Utilities for API alias detection and validation
@@ -87,7 +87,7 @@ async function transform(root: SgRoot<TS>): Promise<string | null> {
   const edits: Edit[] = [];
 
   // Get all possible aliases for 'api' including destructured 'smartGrid'
-  const apiAliases = getApiAliases(rootNode);
+  const apiAliases = getApiAliases(rootNode as unknown as SgNode);
 
   // Find all 'smartGrid' property identifiers in the code
   const smartGridProps = rootNode
@@ -99,7 +99,7 @@ async function transform(root: SgRoot<TS>): Promise<string | null> {
     .filter((prop) => prop.text() === "smartGrid");
 
   for (const prop of smartGridProps) {
-    if (!shouldTransformProperty(prop, apiAliases)) {
+    if (!shouldTransformProperty(prop as unknown as SgNode, apiAliases)) {
       continue;
     }
 
@@ -114,7 +114,10 @@ async function transform(root: SgRoot<TS>): Promise<string | null> {
  * Determine if a smartGrid property should be transformed
  * Only transforms api.smartGrid.presentModal() patterns
  */
-function shouldTransformProperty(prop: any, apiAliases: Set<string>): boolean {
+function shouldTransformProperty(
+  prop: SgNode,
+  apiAliases: Set<string>
+): boolean {
   // Get the parent member expression (e.g., "api.smartGrid")
   const memberExpr = prop.parent();
   if (!memberExpr || memberExpr.kind() !== "member_expression") return false;
